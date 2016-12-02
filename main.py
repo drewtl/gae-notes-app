@@ -48,8 +48,8 @@ class MainHandler(webapp2.RequestHandler):
   def _render_template(self, template_name, context=None):
     if context is None:
         context = {}
-     template = jinja_env.get_template(template_name)
-     return template.render(context)
+    template = jinja_env.get_template(template_name)
+    return template.render(context)
 
 app = webapp2.WSGIApplication([
     ('/', MainHandler)
