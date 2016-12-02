@@ -24,6 +24,32 @@ class MainHandler(webapp2.RequestHandler):
         login_url = users.create_login_url(self.request.uri)
         self.redirect(login_url)
 
+  def post(self):
+      user = users.get_current_user()
+      if user is None:
+          self.error(401)
+      
+      logout_url = users.create_logout_url(self.request.uri)
+      template_context = {
+          'user': user.nickname(),
+          'logout_url': logout_url,
+          'note_title': self.request.get('title'),
+          'note_content': self.request.get('content'),
+      }
+
+      #template = jinja_env.get_template('main.html')
+      #self.response.out.write(
+      #    template.render(template_context))
+     
+      self.response.out.write(
+           self._render_template('main.html', template_context))
+
+  
+  def _render_template(self, template_name, context=None):
+    if context is None:
+        context = {}
+     template = jinja_env.get_template(template_name)
+     return template.render(context)
 
 app = webapp2.WSGIApplication([
     ('/', MainHandler)
