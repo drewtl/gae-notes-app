@@ -1,6 +1,7 @@
 import webapp2
 import os
 import jinja2
+from models import Note
 
 from google.appengine.api import users
 
@@ -28,6 +29,10 @@ class MainHandler(webapp2.RequestHandler):
       user = users.get_current_user()
       if user is None:
           self.error(401)
+
+      note = Note(title=self.request.get('title'),
+                  content=self.request.get('content')) 
+      note.put()
       
       logout_url = users.create_logout_url(self.request.uri)
       template_context = {
