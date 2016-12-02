@@ -9,6 +9,22 @@
       <h1>Welcome to Notes, new branch drew-devel updated via GIT!</h1>
       <p>
       Hello, <b>{{user}}</b> - <a href="{{logout_url}}">Logout</a>
+{% if note_title %}
+<p>Title: {{note_title}}</p>
+<p>Content: {{note_content}}</p>
+{% endif %}
+
+<h4>Add a new note</h4>
+<form action="" method ="post">
+ <div class="form-group">
+   <label for="title">Tite:</label>
+   <input type="text" id="title" name="title" />
+  </div>
+  <div class="form-group">
+     <button type="submit">Save note</button>
+  </div>
+</form>
+
       </p>
     </div>
   </body>
