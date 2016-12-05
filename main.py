@@ -30,8 +30,9 @@ class MainHandler(webapp2.RequestHandler):
       if user is None:
           self.error(401)
 
-      note = Note(title=self.request.get('title'),
-                  content=self.request.get('content')) 
+      note = Note(parent=ndb.Key('User', user.nickname()),
+             title=self.request.get('title'),
+             content=self.request.get('content')) 
       note.put()
       
       logout_url = users.create_logout_url(self.request.uri)
@@ -53,8 +54,14 @@ class MainHandler(webapp2.RequestHandler):
   def _render_template(self, template_name, context=None):
     if context is None:
         context = {}
-    template = jinja_env.get_template(template_name)
-    return template.render(context)
+
+     user = uers.get_current_user()
+     ancestor_key = ndb.Key('User', user.nickname())
+     qry = Note.owner_query(ancestor_key)
+     context['notes'].qry.fetch()
+
+     template = jinja_env.get_template(template_name)
+     return template.render(context)
 
 app = webapp2.WSGIApplication([
     ('/', MainHandler)
