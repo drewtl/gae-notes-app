@@ -14,12 +14,26 @@
 <p>Content: {{note_content}}</p>
 {% endif %}
 
+
+{% for note in notes %}
+<div class='note'>
+  <h4>{{ note.title }}</h4>
+  <p class='note-content'>{{ note.content  }}</p>
+</div>
+{% endfor %}
+
+
 <h4>Add a new note</h4>
 <form action="" method ="post">
  <div class="form-group">
    <label for="title">Tite:</label>
    <input type="text" id="title" name="title" />
   </div>
+
+  <div class"form-group">
+    << label for="content">Content:</label>
+    <<textarea id="content" name="content"></textarea>
+    </div?
   <div class="form-group">
      <button type="submit">Save note</button>
   </div>

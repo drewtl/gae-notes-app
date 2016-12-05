@@ -7,5 +7,5 @@ class Note(ndb.Model):
 
   @classmethod
   def owner_query(cls, parent_key):
-      return cls.query(ancesteor=parent_key).order(
+      return cls.query(ancestor=parent_key).order(
            -cls.date_created)
