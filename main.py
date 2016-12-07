@@ -2,13 +2,37 @@ import webapp2
 import os
 import jinja2
 from models import Note
+from models import CheckListItem
 
 from google.appengine.api import users
-
+from google.appengine.ext import ndb
+from google.appengine.api import app_identity
+import cloudstorage
+import mimetypes
+ 
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
 
 class MainHandler(webapp2.RequestHandler):
+  @ndb.transactional
+  def _create_note(self, user, file_name):
+    note = Note(parent=ndb.Key('User', user.nickname()),
+                title = self.request.get('title'),
+                content=self.request.get('content'))
+    note.put()
+
+    item_titles = self.request.get('checklist_items').split(',')
+    for item_title in item_titles:
+      item = CheckListItem(parent=note.key, title=item_title)
+      item.put()
+      note.checklist_items.append(item.key)
+
+    print 'file_name', file_name
+    if file_name:
+       print 'file_name', file_name
+       note.files.append(file_name)
+    note.put()
+
   def get(self):
       user = users.get_current_user()
       if user is not None:
@@ -29,22 +53,33 @@ class MainHandler(webapp2.RequestHandler):
       user = users.get_current_user()
       if user is None:
           self.error(401)
+      
+      bucket_name = app_identity.get_default_gcs_bucket_name()
+      print 'bucket_name', bucket_name
+      uploaded_file = self.request.POST.get('uploaded_file')
+      print 'uploaded_file', uploaded_file
+      file_name = getattr(uploaded_file, 'filename', None)
+      print 'file_name', file_name 
+      file_content = getattr(uploaded_file, 'file', None)
+      print 'file_content', file_content
+      real_path = ''
+      if file_name and file_content:
+        content_t = mimetypes.guess_type(file_name)[0]
+        real_path = os.path.join('/', bucket_name, user.user_id(),
+                                 file_name)
+        with cloudstorage.open(real_path, 'w',
+                               content_type=content_t) as f:
+           f.write(file_content.read())
+       
+      self._create_note(user, file_name)
 
-      note = Note(title=self.request.get('title'),
-             content=self.request.get('content')) 
-      note.put()
       
       logout_url = users.create_logout_url(self.request.uri)
       template_context = {
           'user': user.nickname(),
           'logout_url': logout_url,
-          'note_title': self.request.get('title'),
-          'note_content': self.request.get('content'),
       }
 
-      #template = jinja_env.get_template('main.html')
-      #self.response.out.write(
-      #    template.render(template_context))
      
       self.response.out.write(
            self._render_template('main.html', template_context))
@@ -54,10 +89,10 @@ class MainHandler(webapp2.RequestHandler):
     if context is None:
         context = {}
 
-    user = uers.get_current_user()
+    user = users.get_current_user()
     ancestor_key = ndb.Key('User', user.nickname())
     qry = Note.owner_query(ancestor_key)
-    context['notes'].qry.fetch()
+    context['notes'] = qry.fetch()
 
     template = jinja_env.get_template(template_name)
     return template.render(context)

@@ -7,7 +7,7 @@
   </head>
   <body>
     <div class="container">
-      <h1>Welcome: GAE CRUD APP - CREATE NOT ENTRIES!</h1>
+      <h1>Welcome: GAE CRUD APP - SAVE NOTES and LOAD IMAGES TO Google Cloud</h1>
       <p>
       Hello, <b>{{user}}</b> - <a href="{{logout_url}}">Logout</a>
 {% if note_title %}
@@ -17,7 +17,7 @@
 
 
 <h4>Add a new note</h4>
-<form action="" method="post">
+<form action="" method="post" enctype="multipart/form-data">
  <div class="form-group">
  <label for="title">Title:</label>
 <input type="text" id="title" name="title"/>
@@ -30,6 +30,12 @@
  <label for="checklist_items">Checklist items:</label>
  <input type="text" id="checklist_items" name="checklist_items" placeholder="comma,separated,values"/>
  </div>
+
+<div class="form-group">
+ <label for="uploaded_file">Attached file:</label>
+ <input type="file" id="uploaded_file" name="uploaded_file">
+</div>
+
  <div class="form-group">
  <button type="submit">Save note</button>
  </div>

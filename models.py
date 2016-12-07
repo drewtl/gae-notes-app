@@ -1,7 +1,7 @@
 from  google.appengine.ext import ndb
 
-class ChecKListItem(ndb.Model):
-  title = ndb.StringPoperty()
+class CheckListItem(ndb.Model):
+  title = ndb.StringProperty()
   checked = ndb.BooleanProperty(default=False)
 
 class Note(ndb.Model):
@@ -11,6 +11,7 @@ class Note(ndb.Model):
   checklist_items = ndb.KeyProperty('CheckListItem', 
                                     repeated=True)
 
+  files = ndb.StringProperty(repeated=True)
 
   @classmethod
   def owner_query(cls, parent_key):
