@@ -74,6 +74,17 @@ div.note > ul > li {
  border-bottom: 2px solid #e7f2f0;
  text-align: left;
 }
+
+div.note > ul > li.file {
+  border: 0;
+  background: #0070B3;
+}
+
+li.file >a {
+  color: white;
+  text-decoratio: none;
+}
+
 div.note-content {
  text-align: left;
  padding: 0.5em;

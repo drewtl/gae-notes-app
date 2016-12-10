@@ -26,6 +26,9 @@
  <label for="content">Content:</label>
  <textarea id="content" name="content"></textarea>
  </div>
+
+
+
  <div class="form-group">
  <label for="checklist_items">Checklist items:</label>
  <input type="text" id="checklist_items" name="checklist_items" placeholder="comma,separated,values"/>
@@ -45,6 +48,16 @@
 <div class='note'>
   <h4>{{ note.title }}</h4>
   <p class='note-content'>{{ note.content  }}</p>
+
+{% if note.files %}
+<ul>
+ {% for file in note.files %}
+ <li class="file"><a href="/media/{{ file }}">{{ file }}</a></li>
+ {% endfor %}
+</ul>
+{% endif %}
+
+
   {% if note.checklist_items %}
   <ul>
     {% for item in note.checklist_items %}

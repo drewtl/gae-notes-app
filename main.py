@@ -97,21 +97,20 @@ class MainHandler(webapp2.RequestHandler):
     template = jinja_env.get_template(template_name)
     return template.render(context)
 
-
 class MediaHandler(webapp2.RequestHandler):
   def get(self, file_name):
     user = users.get_current_user()
-    bucket_name = app.identity.get_default_gcs_bucket_name()
+    bucket_name = app_identity.get_default_gcs_bucket_name()
     content_t = mimetypes.guess_type(file_name)[0]
-    real_path = os.path('/'. bucket_name, user.user_id(), file_name)
-
-    try: 
-      with cloudstorage.open(real_path, 'r') as f:
+    real_path = os.path.join('/', bucket_name, user.user_id(), file_name)
+    try:
+       with cloudstorage.open(real_path, 'r') as f:
          self.response.headers.add_header('Content-Type', content_t)
          self.response.out.write(f.read())
     except cloudstorage.errors.NotFoundError:
-       self.abot(404)
+       self.abort(404)
 
 app = webapp2.WSGIApplication([
-    ('/', MainHandler)
+    (r'/', MainHandler),
+    (r'/media/(?P<file_name>[\w.]{0,256})', MediaHandler),
 ], debug=True)
