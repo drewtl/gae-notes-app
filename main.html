@@ -52,7 +52,13 @@
 {% if note.files %}
 <ul>
  {% for file in note.files %}
- <li class="file"><a href="/media/{{ file }}">{{ file }}</a></li>
+ <li class="file"><a href="/media/{{ file.get().name }}">{{ file.get().name }}</a></li>
+ 
+
+ <li class="file"> <a href="{{ file.get().url }}"> <img src="{{ file.get().thumbnail_url }}">
+ </a>
+ </li>
+
  {% endfor %}
 </ul>
 {% endif %}
