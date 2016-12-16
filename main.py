@@ -6,6 +6,7 @@ from models import NoteFile
 from models import CheckListItem
 from google.appengine.api import images
 from google.appengine.ext import blobstore
+import Image
 
 from google.appengine.api import users
 from google.appengine.ext import ndb
@@ -32,7 +33,7 @@ class MainHandler(webapp2.RequestHandler):
 
 
     if file_name and file_path:
-       url, thumbnail_url = self._get_urls_for(file_name)
+       url, thumbnail_url = self._get_urls_for(file_name, file_path)
 
        f = NoteFile(parent=note.key, name=file_name,
                     url=url, thumbnail_url = thumbnail_url,
@@ -40,9 +41,11 @@ class MainHandler(webapp2.RequestHandler):
        f.put() 
        note.files.append(f.key)
        note.put()
+       
+       print 'done_note.put'
 
 
-  def _get_urls_for(self, file_name):
+  def _get_urls_for(self, file_name, file_path):
     user = users.get_current_user()
     if user is None:
       return
@@ -50,12 +53,26 @@ class MainHandler(webapp2.RequestHandler):
     bucket_name = app_identity.get_default_gcs_bucket_name()
     path = os.path.join('/', bucket_name, user.user_id(), file_name)
     real_path = '/gs' + path
+    print 'file_path', file_path
     key = blobstore.create_gs_key(real_path)
     #key = 'encoded_gs_file:YXBwX2RlZmF1bHRfYnVja2V0LzE5NzYxMjAzNjIxMDYyMjQyNTQxOS91YnVudHVpbWFnZS5qcGc='
-    print 'blobstore.create_gs_key key', key
-    url = images.get_serving_url(key, size=0)
-    thumbnail_url = images.get_serving_url(key, size=150, crop=True)
+
     
+    with cloudstorage.open(file_path) as f:
+      image = images.Image(f.read())
+      image.resize(640)
+      try: 
+        new_image_data = image.execute_transforms()
+        url = images.get_serving_url(key, size=0)
+        thumbnail_url = images.get_serving_url(key, size=150, crop=True)
+      except images.NotImageError, images.BadImageError:
+        url = "http://storage.googleapis.com{}".format(path)
+        thumbnail_url = None
+        
+
+    print 'url, thumbnail_url'
+    print url
+    print thumbnail_url
     return url, thumbnail_url      
 
   def get(self):
@@ -83,16 +100,30 @@ class MainHandler(webapp2.RequestHandler):
       uploaded_file = self.request.POST.get('uploaded_file')
       file_name = getattr(uploaded_file, 'filename', None)
       file_content = getattr(uploaded_file, 'file', None)
+      mimetype = self.request.POST['uploaded_file'].type
+      img_format = mimetype.split('/')[1]
+
+      if (img_format == 'jpeg' or 'jpg' or 'gif' or 'png' or 'bmp' or 'tiff' or 'ico' or 'webp'):
+        print 'img_format', img_format
+      else:
+        print 'file not image', img_format
+        print 'mimetype', mimetype
+      
+
       real_path = ''
       if file_name and file_content:
         content_t = mimetypes.guess_type(file_name)[0]
         real_path = os.path.join('/', bucket_name, user.user_id(),
                                  file_name)
         with cloudstorage.open(real_path, 'w',
-                               content_type=content_t) as f:
+                               content_type=content_t, 
+                               options={'x-goog-acl':'public-read'}) as f:
+
+
            f.write(file_content.read())
        
       self._create_note(user, file_name, real_path)
+      print 'called self._create_note'
 
       
       logout_url = users.create_logout_url(self.request.uri)
@@ -104,6 +135,7 @@ class MainHandler(webapp2.RequestHandler):
      
       self.response.out.write(
            self._render_template('main.html', template_context))
+      print 'called self._reander'
 
   
   def _render_template(self, template_name, context=None):
