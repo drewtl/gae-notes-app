@@ -8,8 +8,14 @@
   <body>
     <div class="container">
       <h1>Welcome: GAE CRUD APP - SAVE NOTES and LOAD IMAGES TO Google Cloud</h1>
-      <p>
-      Hello, <b>{{user}}</b> - <a href="{{logout_url}}">Logout</a>
+
+      <ul class="menu">
+
+     <li> Hello, <b>{{user}}</b></li>
+     <li> <a href="{{logout_url}}">Logout</a></li>
+     <li> <a href="/shrink">Shrink images</a></li>
+</ul>
+<form action="" method="post" enctype="multipart/form-data">
 {% if note_title %}
 <p>Title: {{note_title}}</p>
 <p>Content: {{note_content}}</p>
@@ -17,7 +23,6 @@
 
 
 <h4>Add a new note</h4>
-<form action="" method="post" enctype="multipart/form-data">
  <div class="form-group">
  <label for="title">Title:</label>
 <input type="text" id="title" name="title"/>

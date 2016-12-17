@@ -17,6 +17,16 @@ import mimetypes
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
 
+images_formats = {
+ '0': 'image/png',
+ '1': 'image/jpeg',
+ '2': 'image/webp',
+ '-1': 'image/bmp',
+ '-2': 'image/gif',
+ '-3': 'image/ico',
+ '-4': 'image/tiff',
+}
+
 class MainHandler(webapp2.RequestHandler):
   @ndb.transactional
   def _create_note(self, user, file_name, file_path):
@@ -163,7 +173,41 @@ class MediaHandler(webapp2.RequestHandler):
     except cloudstorage.errors.NotFoundError:
        self.abort(404)
 
+class ShrinkHandler(webapp2.RequestHandler):
+  def _shrink_note(self, note):
+    for file_key in note.files:
+        file = file_key.get()
+        try:
+          with cloudstorage.open(file.full_path) as f:
+            image = images.Image(f.read())
+            image.resize(640)
+            content_t = images_formats.get(str(image.format))
+            try:
+              new_image_data = image.execute_transforms()
+            except images.BadImageError: 
+              pass
+            
+          with cloudstorage.open(file.full_path, 'w',
+                                 content_type=content_t) as f:
+             f.write(new_image_data)
+        except images.NotImageError, images.BadImageError:
+          pass
+   
+  def get(self):
+    user = users.get_current_user()
+    if user is None:
+      login_url = users.create_login_url(self.request.uri)
+      return self.redirect(login_url)
+
+    ancestor_key = ndb.Key("User", user.nickname())
+    notes = Note.owner_query(ancestor_key).fetch()
+ 
+    for note in notes:
+        self._shrink_note(note)                               
+    self.response.write('Done')
+
 app = webapp2.WSGIApplication([
     (r'/', MainHandler),
     (r'/media/(?P<file_name>[\w.]{0,256})', MediaHandler),
+    (r'/shrink', ShrinkHandler),
 ], debug=True)
