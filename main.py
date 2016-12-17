@@ -1,18 +1,19 @@
 import webapp2
-import os
 import jinja2
+import os
+import Image
+import cloudstorage
+import mimetypes
+
 from models import Note
 from models import NoteFile
 from models import CheckListItem
-from google.appengine.api import images
 from google.appengine.ext import blobstore
-import Image
-
-from google.appengine.api import users
 from google.appengine.ext import ndb
+from google.appengine.api import images
+from google.appengine.api import users
 from google.appengine.api import app_identity
-import cloudstorage
-import mimetypes
+from google.appengine.api import taskqueue
  
 jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(os.path.dirname(__file__)))
@@ -199,12 +200,31 @@ class ShrinkHandler(webapp2.RequestHandler):
       login_url = users.create_login_url(self.request.uri)
       return self.redirect(login_url)
 
+    taskqueue.add(url='/shrink',
+                params={'user_email': user.email()})
+
+    self.response.write('Task successfully added to the queue.')
+
+    #ancestor_key = ndb.Key("User", user.nickname())
+    #notes = Note.owner_query(ancestor_key).fetch()
+ 
+    #for note in notes:
+    #    self._shrink_note(note)                               
+    #self.response.write('Done')
+   
+  def post (self):
+    if not 'X-AppEngine-TaskName' in self.request.headers:
+      self.error(403)
+
+    user_email = self.request.get('user_email')
+    user = users.User(user_email)
+
     ancestor_key = ndb.Key("User", user.nickname())
     notes = Note.owner_query(ancestor_key).fetch()
- 
+    
     for note in notes:
-        self._shrink_note(note)                               
-    self.response.write('Done')
+      self._shrink_note(note)
+
 
 app = webapp2.WSGIApplication([
     (r'/', MainHandler),
