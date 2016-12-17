@@ -25,3 +25,5 @@ class Note(ndb.Model):
       return cls.query(ancestor=parent_key).order(
            -cls.date_created)
 
+class UserLoader(ndb.Model):
+  user = ndb.UserProperty()

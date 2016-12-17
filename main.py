@@ -1,6 +1,7 @@
 import webapp2
 import jinja2
 import os
+import re
 import Image
 import cloudstorage
 import mimetypes
@@ -10,6 +11,8 @@ from models import NoteFile
 from models import CheckListItem
 from google.appengine.ext import blobstore
 from google.appengine.ext import ndb
+from google.appengine.ext.webapp import mail_handlers
+from google.appengine.api import mail
 from google.appengine.api import images
 from google.appengine.api import users
 from google.appengine.api import app_identity
@@ -206,6 +209,11 @@ class ShrinkHandler(webapp2.RequestHandler):
     
     for note in notes:
       self._shrink_note(note)
+    
+    sender_address = "Notes Team <notes@totheclouds.net>"
+    subject = "Shrink-resize images complete!"
+    body = "We shrunk all the images attached to your notes!"
+    mail.send_mail(sender_address, user_email, subject, body)
 
   def get(self):
     user = users.get_current_user()
@@ -236,6 +244,76 @@ class ShrinkCronJob(ShrinkHandler):
     #for note in notes:
     #    self._shrink_note(note)                               
     #self.response.write('Done')
+
+class CreateNoteHandler(mail_handlers.InboundMailHandler):
+  @ndb.transactional
+  def _create_note(self, user, title, content, attachments):
+  
+    note = Note(parent=ndb.Key("User", user.nickname()),
+                               title=title,
+                               content=content)
+
+    note.put()
+
+    if attachments:
+      bucket_name = app_identity.get_default_gcs_bucket_name()
+      for file_name, file_content in attachments:
+        content_t = mimetypes.guess_type(file_name)[0]
+        real_path = os.path.join('/', bucket_name,
+                               user.user_id(), file_name)
+      
+        with cloudstorage.open(real_path, 'w',
+               content_type=content_t,
+               options={'x-google-acl': 'public-read'}) as f:
+          f.write(file_content.decode())
+
+        key = blobstore.create_gs_key('/gs' + real_path)
+        try:
+           url = images.get_serving_url(key, size=0)
+           thumbnail_url = images.get_serving_url(key, size=150, crop=True)
+        except images.TransformationError, images.NotImageError:
+          url = "http://storage.googleapis.com{}".format(real_path)
+          thumbnail_url = None
+    
+        f = NoteFile(parent=note.key, name=file_name,
+                  url=url, thumbnail_url=thumbnail_url,
+                  full_path=real_path)
+        f.put()
+        note.files.append(f.key)
+
+   
+            
+       
+
+  def _reload_user(self, user_instance):
+    key = UserLoader(user=user_instance)
+    key.delete(user_datastore=False)
+    u_loader = UserLoader.query(
+            UserLoader.user == user_instance)
+    return UserLoader.user
+
+  def receive(self, mail_message):
+    email_pattern = re.compile(
+      r'([\w\-\.]+@(\w[\w\-]+\.)+[\w\-]+_)')
+
+    match = email_pattern.findall(mail_message.sender)
+    email_addr = match[0][0] if match else ''
+
+    try:
+      user = users.User(email_addr)
+      user = self._reload_user(user)
+
+    except users.UserNotFoundError:
+      return self.error(403)
+
+    title = mail_message.subject
+    content = ''
+    for content_t, body in mail_message.bodies('text/plain'):
+      content += body.decide()
+
+    attachments = getattr(mail_message, 'attachments', None)
+    
+    self._create_note(user, title, content, attachments)
    
 
 
@@ -244,4 +322,5 @@ app = webapp2.WSGIApplication([
     (r'/media/(?P<file_name>[\w.]{0,256})', MediaHandler),
     (r'/shrink', ShrinkHandler),
     (r'/shrink_all', ShrinkCronJob),
+    (r'/_ah/mail/<appid>\.appspotmail\.com', CreateNoteHandler),
 ], debug=True)
