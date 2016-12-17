@@ -194,24 +194,6 @@ class ShrinkHandler(webapp2.RequestHandler):
         except images.NotImageError, images.BadImageError:
           pass
    
-  def get(self):
-    user = users.get_current_user()
-    if user is None:
-      login_url = users.create_login_url(self.request.uri)
-      return self.redirect(login_url)
-
-    taskqueue.add(url='/shrink',
-                params={'user_email': user.email()})
-
-    self.response.write('Task successfully added to the queue.')
-
-    #ancestor_key = ndb.Key("User", user.nickname())
-    #notes = Note.owner_query(ancestor_key).fetch()
- 
-    #for note in notes:
-    #    self._shrink_note(note)                               
-    #self.response.write('Done')
-   
   def post (self):
     if not 'X-AppEngine-TaskName' in self.request.headers:
       self.error(403)
@@ -225,9 +207,41 @@ class ShrinkHandler(webapp2.RequestHandler):
     for note in notes:
       self._shrink_note(note)
 
+  def get(self):
+    user = users.get_current_user()
+    if user is None:
+      login_url = users.create_login_url(self.request.uri)
+      return self.redirect(login_url)
+
+    taskqueue.add(url='/shrink',
+                params={'user_email': user.email()})
+
+    self.response.write('Task successfully added to the queue.')
+
+class ShrinkCronJob(ShrinkHandler):
+  def post(self):
+    self.abort(405, headers=[('Allow', 'GET')])
+  
+  def get(self):
+    if 'X-AppEngine-Cron' not in self.request.headers:
+      self.error(403)
+
+      notes = Notes.query().fetch()
+      for note in notes:
+        self._shrink_note(note) 
+
+    #ancestor_key = ndb.Key("User", user.nickname())
+    #notes = Note.owner_query(ancestor_key).fetch()
+ 
+    #for note in notes:
+    #    self._shrink_note(note)                               
+    #self.response.write('Done')
+   
+
 
 app = webapp2.WSGIApplication([
     (r'/', MainHandler),
     (r'/media/(?P<file_name>[\w.]{0,256})', MediaHandler),
     (r'/shrink', ShrinkHandler),
+    (r'/shrink_all', ShrinkCronJob),
 ], debug=True)
