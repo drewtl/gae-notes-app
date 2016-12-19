@@ -2,14 +2,20 @@ runtime: python27
 api_version: 1
 threadsafe: yes
 
-handlers:
+inbound_services:
+- mail
 
+handlers:
 - url: /static
   static_dir: static
 
+#- url: /_ah/mail/.+
+#  script: handle_incoming_email.app
+#  login: admin
 
 - url: .*
   script: main.app
+
 
 libraries:
 - name: PIL
@@ -19,5 +25,3 @@ libraries:
 - name: jinja2
   version: latest
 
-inbound_services:
-- mail

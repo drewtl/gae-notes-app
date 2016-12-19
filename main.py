@@ -9,6 +9,7 @@ import mimetypes
 from models import Note
 from models import NoteFile
 from models import CheckListItem
+from models import UserLoader
 from google.appengine.ext import blobstore
 from google.appengine.ext import ndb
 from google.appengine.ext.webapp import mail_handlers
@@ -246,6 +247,38 @@ class ShrinkCronJob(ShrinkHandler):
     #self.response.write('Done')
 
 class CreateNoteHandler(mail_handlers.InboundMailHandler):
+  def receive(self, mail_message):
+    print mail_message.sender
+    print mail_message
+    print 'receive method called', mail_message
+    email_pattern = re.compile(
+      r'([\w\-\.]+@(\w[\w\-]+\.)+[\w\-]+)')
+
+    print 'email_pattern', email_pattern
+    match = email_pattern.findall(mail_message.sender)
+    print 'match', match
+    print match[0][0]
+    email_addr = match[0][0] if match else ''
+
+    print 'email_addr', email_addr
+    try:
+      user = users.User(email_addr)
+      #user = self._reload_user(user)
+
+    except users.UserNotFoundError:
+      return self.error(403)
+
+    title = mail_message.subject
+    content = ''
+    for content_t, body in mail_message.bodies('text/plain'):
+      content += body.decode()
+
+
+    attachments = getattr(mail_message, 'attachments', None)
+    
+    self._create_note(user, title, content, attachments)
+    print "CreateNoteHandler"
+
   @ndb.transactional
   def _create_note(self, user, title, content, attachments):
   
@@ -281,40 +314,13 @@ class CreateNoteHandler(mail_handlers.InboundMailHandler):
         f.put()
         note.files.append(f.key)
 
-   
-            
-       
 
   def _reload_user(self, user_instance):
-    key = UserLoader(user=user_instance)
-    key.delete(user_datastore=False)
+    key = UserLoader(user=user_instance).put()
+    key.delete(use_datastore=False)
     u_loader = UserLoader.query(
-            UserLoader.user == user_instance)
+            UserLoader.user == user_instance).get()
     return UserLoader.user
-
-  def receive(self, mail_message):
-    email_pattern = re.compile(
-      r'([\w\-\.]+@(\w[\w\-]+\.)+[\w\-]+_)')
-
-    match = email_pattern.findall(mail_message.sender)
-    email_addr = match[0][0] if match else ''
-
-    try:
-      user = users.User(email_addr)
-      user = self._reload_user(user)
-
-    except users.UserNotFoundError:
-      return self.error(403)
-
-    title = mail_message.subject
-    content = ''
-    for content_t, body in mail_message.bodies('text/plain'):
-      content += body.decide()
-
-    attachments = getattr(mail_message, 'attachments', None)
-    
-    self._create_note(user, title, content, attachments)
-   
 
 
 app = webapp2.WSGIApplication([
@@ -322,5 +328,7 @@ app = webapp2.WSGIApplication([
     (r'/media/(?P<file_name>[\w.]{0,256})', MediaHandler),
     (r'/shrink', ShrinkHandler),
     (r'/shrink_all', ShrinkCronJob),
-    (r'/_ah/mail/<appid>\.appspotmail\.com', CreateNoteHandler),
+    (r'/_ah/mail/.+', CreateNoteHandler)
 ], debug=True)
+
+   
