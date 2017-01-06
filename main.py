@@ -38,14 +38,19 @@ class MainHandler(webapp2.RequestHandler):
     note = Note(parent=ndb.Key('User', user.nickname()),
                 title = self.request.get('title'),
                 content=self.request.get('content'))
-    note.put()
+    #note.put()
 
     item_titles = self.request.get('checklist_items').split(',')
     for item_title in item_titles:
-      item = CheckListItem(parent=note.key, title=item_title)
-      item.put()
-      note.checklist_items.append(item.key)
+      if not item_title:
+        continue
+      item = CheckListItem(title=item_title)
+      #item.put()
+      #note.checklist_items.append(item.key)
 
+      note.checklist_items.append(item)
+
+    note.put()
 
     if file_name and file_path:
        url, thumbnail_url = self._get_urls_for(file_name, file_path)
@@ -206,10 +211,11 @@ class ShrinkHandler(webapp2.RequestHandler):
     user = users.User(user_email)
 
     ancestor_key = ndb.Key("User", user.nickname())
-    notes = Note.owner_query(ancestor_key).fetch()
+    #notes = Note.owner_query(ancestor_key).fetch(projection=[Note.files]).map(self.shrink_note)
+    notes = Note.owner_query(ancestor_key).map(self._shrink_note, projection=[Note.files])
     
-    for note in notes:
-      self._shrink_note(note)
+    #for note in notes:
+    #  self._shrink_note(note)
     
     sender_address = "Notes Team <notes@totheclouds.net>"
     subject = "Shrink-resize images complete!"
@@ -275,6 +281,7 @@ class CreateNoteHandler(mail_handlers.InboundMailHandler):
 
 
     attachments = getattr(mail_message, 'attachments', None)
+    print attachments
     
     self._create_note(user, title, content, attachments)
     print "CreateNoteHandler"
@@ -322,12 +329,26 @@ class CreateNoteHandler(mail_handlers.InboundMailHandler):
             UserLoader.user == user_instance).get()
     return UserLoader.user
 
+class ToggleHandler(webapp2.RequestHandler):
+  def get(self, note_key, item_index):
+    print "item_index", item_index 
+    item_index = int(item_index) - 1
+    print "item_index", item_index 
+    note = ndb.Key(urlsafe=note_key).get()
+    item = note.checklist_items[item_index]
+    item.checked = not item.checked
+    note.put()
+    self.redirect('/')
+    
+ 
 
 app = webapp2.WSGIApplication([
     (r'/', MainHandler),
     (r'/media/(?P<file_name>[\w.]{0,256})', MediaHandler),
     (r'/shrink', ShrinkHandler),
     (r'/shrink_all', ShrinkCronJob),
+    (r'/toggle/(?P<note_key>[\w\-]+)/(?P<item_index>\d+)',
+ToggleHandler),
     (r'/_ah/mail/.+', CreateNoteHandler)
 ], debug=True)
 
